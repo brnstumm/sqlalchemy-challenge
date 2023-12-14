@@ -59,16 +59,14 @@ def home():
 def precipitation():
     session = Session(engine)
     
-    lastdate = session.query(func.max(Measurement.date)).\
+    lastdate = session.query(func.max(measure.date)).\
                     scalar()
     dt_lastdate= dt.datetime.strptime(lastdate,"%Y-%m-%d").date()
     dt_startdate = dt_lastdate - dt.timedelta(days=365)
     startdate = dt_startdate.strftime("%Y-%m-%d")
-    results = session.query(Measurement.date, Measurement.prcp).\
-            filter(Measurement.date.between(startdate,lastdate)).\
+    results = session.query(measure.date, measure.prcp).\
+            filter(measure.date.between(startdate,lastdate)).\
             all()
-    
-    session.close()
     
     precip = []
     for date, prcp in results:
@@ -82,12 +80,8 @@ def precipitation():
 # List of all the stations
 @app.route("/api/v1.0/stations")
 def stations():
-
     session = Session(engine)
-
-    results = session.query(Station.name).all()
-
-    session.close()
+    results = session.query(station.name).all()
 
     # Convert list of tuples into normal list
     all_stations = list(np.ravel(results))
@@ -97,20 +91,19 @@ def stations():
 @app.route("/api/v1.0/tobs")
 def tobs():
     session = Session(engine)
-    top_station = session.query(Measurement.station).\
-                    group_by(Measurement.station).\
-                    order_by(func.count(Measurement.station).desc()).\
+    top_station = session.query(measure.station).\
+                    group_by(measure.station).\
+                    order_by(func.count(measure.station).desc()).\
                     subquery()
-    lastdate = session.query(func.max(Measurement.date)).\
+    lastdate = session.query(func.max(measure.date)).\
                     scalar()
     dt_lastdate= dt.datetime.strptime(lastdate,"%Y-%m-%d").date()
     dt_startdate = dt_lastdate - dt.timedelta(days=365)
     startdate = dt_startdate.strftime("%Y-%m-%d")
-    results = session.query(Measurement.date, Measurement.tobs).\
-                filter(Measurement.date.between(startdate,lastdate)).\
-                filter(Measurement.station.in_(top_station)).\
+    results = session.query(measure.date, measure.tobs).\
+                filter(measure.date.between(startdate,lastdate)).\
+                filter(measure.station.in_(top_station)).\
                 all()
-    session.close()
 
     topStation = []
     for date, tobs in results:
@@ -123,21 +116,22 @@ def tobs():
 
 #list of the minimum temperature, the average temperature, and the maximum temperature 
 # for a specified start or start-end range
+@app.route("/api/v1.0/<start>")
 @app.route("/api/v1.0/<start>/<end>")
 def rangestart(start,end=None):
     session=Session(engine)
     if end == None:
-        enddate = session.query(func.max(Measurement.date)).\
+        enddate = session.query(func.max(measure.date)).\
                     scalar()
     else:
-        enddate = str(end)
-    startdate = str(start)
-    results = session.query(func.min(Measurement.tobs).label('min_temp'),
-                            func.avg(Measurement.tobs).label('avg_temp'),
-                            func.max(Measurement.tobs).label('max_temp')).\
-                filter(Measurement.date.between(startdate,enddate)).\
+        enddate = dt.datetime.strptime(end, "%m-%d-%Y")
+        startdate = dt.datetime.strptime(start, "%m-%d-%Y")
+    results = session.query(func.min(measure.tobs).label('min_temp'),
+                            func.avg(measure.tobs).label('avg_temp'),
+                            func.max(measure.tobs).label('max_temp')).\
+                filter(measure.date.between(startdate,enddate)).\
                 first()
-    session.close()
+ 
     datapoints = list(np.ravel(results))
     return jsonify(datapoints)
 
